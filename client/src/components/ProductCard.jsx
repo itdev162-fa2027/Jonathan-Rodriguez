@@ -1,40 +1,100 @@
-import { Link } from "react-router-dom";
-import "./ProductCard.css";
+import { useState, useEffect } from "react";
+import { searchProducts } from "../services/api";
+import ProductCard from "./ProductCard";
+import "./ProductList.css";
 
-function ProductCard({ product }) {
-  const displayPrice = product.isOnSale ? product.salePrice : product.price;
-  const hasDiscount = product.isOnSale && product.salePrice < product.price;
+function ProductList() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchInput, setSearchInput] = useState(""); // What user types
+  const [activeSearch, setActiveSearch] = useState(""); // What's actually searched
+
+  // Fetch products when activeSearch changes
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const data = await searchProducts(activeSearch);
+        setProducts(data);
+        setError(null);
+      } catch (err) {
+        setError("Failed to load products. Please try again later.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [activeSearch]);
+
+  const handleSearch = () => {
+    setActiveSearch(searchInput);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setActiveSearch("");
+  };
+
+  if (loading) {
+    return <div className="loading">Loading products...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
 
   return (
-    <Link to={`/products/${product.id}`} className="product-card">
-      <div className="product-image">
-        <img
-          src={
-            product.imageUrl ||
-            "https://via.placeholder.com/300x200?text=No+Image"
-          }
-          alt={product.name}
+    <div className="product-list-container">
+      <div className="search-container">
+        <input
+          type="text"
+          placeholder="Search products by name..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="search-input"
         />
-        {hasDiscount && <span className="sale-badge">SALE</span>}
+        <button onClick={handleSearch} className="search-button">
+          Search
+        </button>
+        {searchInput && (
+          <button onClick={handleClearSearch} className="clear-search-button">
+            Clear
+          </button>
+        )}
       </div>
-      <div className="product-info">
-        <h3 className="product-name">{product.name}</h3>
-        <div className="product-pricing">
-          {hasDiscount && (
-            <span className="original-price">${product.price.toFixed(2)}</span>
-          )}
-          <span className="current-price">${displayPrice.toFixed(2)}</span>
+
+      {products.length === 0 ? (
+        <div className="no-results">
+          {activeSearch
+            ? `No products found matching "${activeSearch}"`
+            : "No products available"}
         </div>
-        <p className="product-stock">
-          {product.currentStock > 0 ? (
-            <span className="in-stock">In Stock ({product.currentStock})</span>
-          ) : (
-            <span className="out-of-stock">Out of Stock</span>
+      ) : (
+        <>
+          {activeSearch && (
+            <p className="search-results-count">
+              Found {products.length} product{products.length !== 1 ? "s" : ""}
+            </p>
           )}
-        </p>
-      </div>
-    </Link>
+          <div className="product-grid">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
-export default ProductCard;
+export default ProductList;
